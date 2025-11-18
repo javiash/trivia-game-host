@@ -25,6 +25,8 @@
     let playerName = '';
     let hasResponded = false;
     let isHostAuthenticated = false;
+    let isEditMode = false;
+    let editingPlayer = null;
 
     socket.on('gameState', (state) => {
       gameState = state;
@@ -63,6 +65,40 @@
 
     function resetGame() {
       socket.emit('resetGame');
+    }
+
+    function removeAllPlayers() {
+      socket.emit('removeAllPlayers');
+    }
+
+    function removePlayer(name) {
+      socket.emit('removePlayer', name);
+    }
+
+    function updatePlayer(oldName, newName, newScore) {
+      socket.emit('updatePlayer', { oldName, newName, newScore });
+    }
+
+    function toggleEditMode() {
+      isEditMode = !isEditMode;
+      editingPlayer = null;
+      if (mode === 'host' && isHostAuthenticated) {
+        renderPlayersList();
+      }
+    }
+
+    function startEditingPlayer(playerName) {
+      editingPlayer = playerName;
+      renderPlayersList();
+    }
+
+    function savePlayerEdit(oldName) {
+      // Esta función ya no se usa directamente, los event listeners la manejan
+    }
+
+    function cancelEdit() {
+      editingPlayer = null;
+      renderPlayersList();
     }
 
     function render() {
@@ -237,22 +273,21 @@
               <div class="lg:col-span-1 space-y-4">
                 <!-- Lista de Jugadores Activos -->
                 <div class="bg-white rounded-3xl shadow-2xl p-6">
-                  <h3 class="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
-                    👥 Jugadores Conectados
-                  </h3>
+                  <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-xl font-bold text-gray-800 flex items-center gap-2">
+                      👥 Jugadores Conectados
+                    </h3>
+                    <button
+                      onclick="toggleEditMode()"
+                      class="px-3 py-1 ${isEditMode ? 'bg-orange-500' : 'bg-blue-500'} text-white rounded-lg hover:opacity-80 text-sm font-semibold"
+                    >
+                      ${isEditMode ? '🔓 Bloquear' : '🔒 Editar'}
+                    </button>
+                  </div>
                   ${gameState.players.length === 0 ? `
                     <p class="text-gray-500 text-center py-4 text-sm">No hay jugadores conectados</p>
                   ` : `
-                    <div class="space-y-2 max-h-64 overflow-y-auto">
-                      ${gameState.players.map(player => `
-                        <div class="flex items-center justify-between p-3 bg-blue-50 rounded-lg border border-blue-200">
-                          <div class="flex items-center gap-2">
-                            <div class="w-2 h-2 bg-green-500 rounded-full"></div>
-                            <span class="font-semibold text-gray-800">${player}</span>
-                          </div>
-                          <span class="text-sm text-purple-600 font-bold">${gameState.scores[player] || 0} pts</span>
-                        </div>
-                      `).join('')}
+                    <div class="space-y-2 max-h-96 overflow-y-auto" id="players-list">
                     </div>
                   `}
                 </div>
@@ -263,12 +298,20 @@
                     <h3 class="text-xl font-bold text-gray-800 flex items-center gap-2">
                       🏆 Ranking
                     </h3>
-                    <button
-                      onclick="if(confirm('¿Reiniciar el juego y los puntos?')) resetGame()"
-                      class="px-3 py-1 bg-red-500 text-white rounded-lg hover:bg-red-600 text-sm"
-                    >
-                      Reiniciar
-                    </button>
+                    <div class="flex gap-2">
+                      <button
+                        onclick="if(confirm('¿Quitar a todos los jugadores?')) removeAllPlayers()"
+                        class="px-3 py-1 bg-orange-500 text-white rounded-lg hover:bg-orange-600 text-sm"
+                      >
+                        🗑️ Todos
+                      </button>
+                      <button
+                        onclick="if(confirm('¿Reiniciar el juego y los puntos?')) resetGame()"
+                        class="px-3 py-1 bg-red-500 text-white rounded-lg hover:bg-red-600 text-sm"
+                      >
+                        🔄 Reiniciar
+                      </button>
+                    </div>
                   </div>
                   ${sortedScores.length === 0 ? `
                     <p class="text-gray-500 text-center py-4 text-sm">No hay puntuaciones aún</p>
@@ -294,6 +337,120 @@
           </div>
         </div>
       `;
+      
+      // Renderizar lista de jugadores después de que el HTML esté en el DOM
+      if (gameState.players.length > 0) {
+        renderPlayersList();
+      }
+    }
+
+    function renderPlayersList() {
+      const container = document.getElementById('players-list');
+      if (!container) return;
+      
+      container.innerHTML = '';
+      
+      gameState.players.forEach((player, index) => {
+        const isEditing = editingPlayer === player;
+        const playerDiv = document.createElement('div');
+        playerDiv.className = `p-3 ${isEditing ? 'bg-orange-50 border-2 border-orange-400' : 'bg-blue-50 border border-blue-200'} rounded-lg`;
+        
+        if (isEditing) {
+          playerDiv.innerHTML = `
+            <div class="space-y-2">
+              <input
+                type="text"
+                id="edit-name-${index}"
+                value="${player}"
+                class="w-full px-2 py-1 border-2 border-orange-300 rounded focus:border-orange-500 focus:outline-none text-sm"
+                placeholder="Nombre"
+              />
+              <input
+                type="number"
+                id="edit-score-${index}"
+                value="${gameState.scores[player] || 0}"
+                class="w-full px-2 py-1 border-2 border-orange-300 rounded focus:border-orange-500 focus:outline-none text-sm"
+                placeholder="Puntos"
+              />
+              <div class="flex gap-2">
+                <button
+                  class="flex-1 px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600 text-sm font-semibold save-btn"
+                  data-player="${player}"
+                  data-index="${index}"
+                >
+                  ✓ Guardar
+                </button>
+                <button
+                  class="flex-1 px-3 py-1 bg-gray-400 text-white rounded hover:bg-gray-500 text-sm font-semibold cancel-btn"
+                >
+                  ✗ Cancelar
+                </button>
+              </div>
+            </div>
+          `;
+        } else {
+          playerDiv.innerHTML = `
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2 flex-1">
+                <div class="w-2 h-2 bg-green-500 rounded-full"></div>
+                <span class="font-semibold text-gray-800">${player}</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="text-sm text-purple-600 font-bold">${gameState.scores[player] || 0} pts</span>
+                ${isEditMode ? `
+                  <button
+                    class="px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 text-xs edit-btn"
+                    data-player="${player}"
+                  >
+                    ✏️
+                  </button>
+                  <button
+                    class="px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600 text-xs delete-btn"
+                    data-player="${player}"
+                  >
+                    🗑️
+                  </button>
+                ` : ''}
+              </div>
+            </div>
+          `;
+        }
+        
+        container.appendChild(playerDiv);
+      });
+      
+      // Agregar event listeners
+      container.querySelectorAll('.edit-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          startEditingPlayer(btn.dataset.player);
+        });
+      });
+      
+      container.querySelectorAll('.delete-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          if (confirm(`¿Eliminar a ${btn.dataset.player}?`)) {
+            removePlayer(btn.dataset.player);
+          }
+        });
+      });
+      
+      container.querySelectorAll('.save-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const oldName = btn.dataset.player;
+          const index = btn.dataset.index;
+          const newName = document.getElementById(`edit-name-${index}`).value.trim();
+          const newScore = parseInt(document.getElementById(`edit-score-${index}`).value) || 0;
+          
+          if (newName) {
+            updatePlayer(oldName, newName, newScore);
+            editingPlayer = null;
+          }
+        });
+      });
+      
+      container.querySelectorAll('.cancel-btn').forEach(btn => {
+        btn.addEventListener('click', cancelEdit);
+      });
     }
 
     function renderPlayer() {
