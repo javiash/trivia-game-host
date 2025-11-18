@@ -159,6 +159,66 @@ io.on('connection', (socket) => {
     console.log('Juego reiniciado');
   });
   
+  // Quitar todos los jugadores
+  socket.on('removeAllPlayers', () => {
+    gameState.players = new Set();
+    gameState.scores = {};
+    gameState.responses = [];
+    gameState.isQuestionActive = false;
+    gameState.currentQuestion = '';
+    gameState.questionNumber = 0;
+    gameState.currentTurnIndex = 0;
+    
+    io.emit('gameState', {
+      ...gameState,
+      players: Array.from(gameState.players)
+    });
+    console.log('Todos los jugadores eliminados');
+  });
+  
+  // Eliminar jugador individual
+  socket.on('removePlayer', (name) => {
+    gameState.players.delete(name);
+    delete gameState.scores[name];
+    gameState.responses = gameState.responses.filter(r => r.name !== name);
+    
+    io.emit('gameState', {
+      ...gameState,
+      players: Array.from(gameState.players)
+    });
+    console.log('Jugador eliminado:', name);
+  });
+  
+  // Actualizar jugador (nombre y/o puntos)
+  socket.on('updatePlayer', (data) => {
+    const { oldName, newName, newScore } = data;
+    
+    // Si cambió el nombre
+    if (oldName !== newName) {
+      gameState.players.delete(oldName);
+      gameState.players.add(newName);
+      
+      // Actualizar puntos con el nuevo nombre
+      const score = gameState.scores[oldName] || 0;
+      delete gameState.scores[oldName];
+      gameState.scores[newName] = newScore !== undefined ? newScore : score;
+      
+      // Actualizar respuestas
+      gameState.responses.forEach(r => {
+        if (r.name === oldName) r.name = newName;
+      });
+    } else {
+      // Solo cambió el puntaje
+      gameState.scores[newName] = newScore;
+    }
+    
+    io.emit('gameState', {
+      ...gameState,
+      players: Array.from(gameState.players)
+    });
+    console.log('Jugador actualizado:', oldName, '->', newName, 'Puntos:', newScore);
+  });
+  
   socket.on('disconnect', () => {
     console.log('Usuario desconectado:', socket.id);
   });
