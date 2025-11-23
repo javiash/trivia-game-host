@@ -1,11 +1,11 @@
-import { createContext, useContext, useState, useEffect, useRef } from 'react';
-import { io } from 'socket.io-client';
+import { createContext, useContext, useState, useEffect, useRef } from "react";
+import { io } from "socket.io-client";
 
 const GameContext = createContext();
 
 export function GameProvider({ children }) {
   const [gameState, setGameState] = useState({
-    currentQuestion: '',
+    currentQuestion: "",
     isQuestionActive: false,
     responses: [],
     scores: {},
@@ -14,9 +14,9 @@ export function GameProvider({ children }) {
     currentTurnIndex: 0,
   });
 
-  const [mode, setMode] = useState('choose');
-  const [playerName, setPlayerName] = useState('');
-  const [previousPlayerName, setPreviousPlayerName] = useState('');
+  const [mode, setMode] = useState("choose");
+  const [playerName, setPlayerName] = useState("");
+  const [previousPlayerName, setPreviousPlayerName] = useState("");
   const [hasResponded, setHasResponded] = useState(false);
   const [isHostAuthenticated, setIsHostAuthenticated] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
@@ -27,7 +27,12 @@ export function GameProvider({ children }) {
   // Inicializar socket una sola vez
   useEffect(() => {
     if (!socketRef.current) {
-      socketRef.current = io();
+      // En producción, conectar al mismo servidor (mismo dominio)
+      // En desarrollo, Vite proxy maneja la conexión
+      const socketUrl = import.meta.env.PROD
+        ? window.location.origin
+        : undefined;
+      socketRef.current = io(socketUrl);
     }
 
     const socket = socketRef.current;
@@ -36,8 +41,10 @@ export function GameProvider({ children }) {
     const handleNameChanged = (data) => {
       const { oldName, newName } = data;
       setPlayerName((currentName) => {
-        if (mode === 'player' && currentName === oldName) {
-          console.log(`Nombre actualizado por el host: ${oldName} -> ${newName}`);
+        if (mode === "player" && currentName === oldName) {
+          console.log(
+            `Nombre actualizado por el host: ${oldName} -> ${newName}`
+          );
           return newName;
         }
         return currentName;
@@ -51,7 +58,7 @@ export function GameProvider({ children }) {
         const newState = state;
 
         // Si estamos en modo jugador, manejar lógica específica
-        if (mode === 'player') {
+        if (mode === "player") {
           if (!newState.isQuestionActive) {
             setHasResponded(false);
           }
@@ -66,7 +73,9 @@ export function GameProvider({ children }) {
               });
 
               if (newPlayerName) {
-                console.log(`Nombre actualizado (fallback): ${currentName} -> ${newPlayerName}`);
+                console.log(
+                  `Nombre actualizado (fallback): ${currentName} -> ${newPlayerName}`
+                );
                 return newPlayerName;
               }
             }
@@ -78,48 +87,48 @@ export function GameProvider({ children }) {
       });
     };
 
-    socket.on('playerNameChanged', handleNameChanged);
-    socket.on('gameState', handleGameState);
+    socket.on("playerNameChanged", handleNameChanged);
+    socket.on("gameState", handleGameState);
 
     return () => {
-      socket.off('gameState', handleGameState);
-      socket.off('playerNameChanged', handleNameChanged);
+      socket.off("gameState", handleGameState);
+      socket.off("playerNameChanged", handleNameChanged);
     };
   }, [mode]);
 
   // Funciones del socket
   const socketActions = {
     startQuestion: (question) => {
-      socketRef.current?.emit('startQuestion', question);
+      socketRef.current?.emit("startQuestion", question);
     },
     endQuestion: () => {
-      socketRef.current?.emit('endQuestion');
+      socketRef.current?.emit("endQuestion");
     },
     playerResponse: (name) => {
       if (!gameState.isQuestionActive || hasResponded) return;
       setHasResponded(true);
-      socketRef.current?.emit('playerResponse', { name });
+      socketRef.current?.emit("playerResponse", { name });
     },
     markCorrect: (name, points) => {
-      socketRef.current?.emit('markCorrect', { name, points });
+      socketRef.current?.emit("markCorrect", { name, points });
     },
     markIncorrect: (name) => {
-      socketRef.current?.emit('markIncorrect', name);
+      socketRef.current?.emit("markIncorrect", name);
     },
     resetGame: () => {
-      socketRef.current?.emit('resetGame');
+      socketRef.current?.emit("resetGame");
     },
     removeAllPlayers: () => {
-      socketRef.current?.emit('removeAllPlayers');
+      socketRef.current?.emit("removeAllPlayers");
     },
     removePlayer: (name) => {
-      socketRef.current?.emit('removePlayer', name);
+      socketRef.current?.emit("removePlayer", name);
     },
     updatePlayer: (oldName, newName, newScore) => {
-      socketRef.current?.emit('updatePlayer', { oldName, newName, newScore });
+      socketRef.current?.emit("updatePlayer", { oldName, newName, newScore });
     },
     registerPlayer: (name) => {
-      socketRef.current?.emit('registerPlayer', name);
+      socketRef.current?.emit("registerPlayer", name);
     },
   };
 
@@ -150,8 +159,7 @@ export function GameProvider({ children }) {
 export function useGame() {
   const context = useContext(GameContext);
   if (!context) {
-    throw new Error('useGame must be used within GameProvider');
+    throw new Error("useGame must be used within GameProvider");
   }
   return context;
 }
-

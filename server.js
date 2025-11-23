@@ -2,6 +2,11 @@ import express from "express";
 import http from "node:http";
 import { Server as socketIo } from "socket.io";
 import cors from "cors";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const app = express();
 const server = http.createServer(app);
@@ -18,7 +23,11 @@ app.use(express.json());
 // Servir archivos estáticos desde public (para desarrollo)
 // En producción, Vite genera los archivos en dist/
 if (process.env.NODE_ENV === "production") {
-  app.use(express.static("dist"));
+  app.use(express.static(join(__dirname, "dist")));
+  // Para SPA: servir index.html en todas las rutas que no sean API
+  app.get("*", (req, res) => {
+    res.sendFile(join(__dirname, "dist", "index.html"));
+  });
 } else {
   app.use(express.static("public"));
 }
@@ -249,7 +258,7 @@ io.on("connection", (socket) => {
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, "0.0.0.0", () => {
+server.listen(PORT, () => {
   console.log(`
 ╔════════════════════════════════════════╗
 ║   🎉 SERVIDOR DE TRIVIA INICIADO 🎉   ║

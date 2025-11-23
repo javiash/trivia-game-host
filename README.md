@@ -132,6 +132,19 @@ La contraseña por defecto es: `Marco`
 
 Puedes cambiarla editando `src/components/Host/HostLogin.jsx`
 
+## 🚀 Deploy en Render.com
+
+Para deployar en Render.com, consulta la [Guía de Deploy](./DEPLOY.md).
+
+**Resumen rápido:**
+1. Sube tu código a GitHub/GitLab/Bitbucket
+2. Crea un Web Service en Render.com
+3. Configura:
+   - Build Command: `npm install && npm run build`
+   - Start Command: `npm start`
+   - Environment: `NODE_ENV=production`
+4. ¡Listo! Tu app estará en línea
+
 ## 📄 Licencia
 
 Este proyecto es de código abierto y está disponible para uso personal.
