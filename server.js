@@ -1,11 +1,11 @@
-const express = require("express");
-const http = require("http");
-const socketIo = require("socket.io");
-const cors = require("cors");
+import express from "express";
+import http from "node:http";
+import { Server as socketIo } from "socket.io";
+import cors from "cors";
 
 const app = express();
 const server = http.createServer(app);
-const io = socketIo(server, {
+const io = new socketIo(server, {
   cors: {
     origin: "*",
     methods: ["GET", "POST"],
@@ -14,7 +14,14 @@ const io = socketIo(server, {
 
 app.use(cors());
 app.use(express.json());
-app.use(express.static("public"));
+
+// Servir archivos estáticos desde public (para desarrollo)
+// En producción, Vite genera los archivos en dist/
+if (process.env.NODE_ENV === "production") {
+  app.use(express.static("dist"));
+} else {
+  app.use(express.static("public"));
+}
 
 let gameState = {
   currentQuestion: "",
@@ -200,17 +207,25 @@ io.on("connection", (socket) => {
       gameState.players.delete(oldName);
       gameState.players.add(newName);
 
-      // Actualizar puntos con el nuevo nombre
-      const score = gameState.scores[oldName] || 0;
+      // Preservar los puntos existentes si newScore no se proporciona
+      const currentScore = gameState.scores[oldName] || 0;
       delete gameState.scores[oldName];
-      gameState.scores[newName] = newScore !== undefined ? newScore : score;
+      // Si newScore es undefined, mantener el score actual; si se proporciona, usar el nuevo
+      gameState.scores[newName] =
+        newScore !== undefined ? newScore : currentScore;
 
       // Actualizar respuestas
       gameState.responses.forEach((r) => {
         if (r.name === oldName) r.name = newName;
       });
-    } else {
-      // Solo cambió el puntaje
+
+      // Emitir evento específico para notificar el cambio de nombre a todos los clientes
+      io.emit("playerNameChanged", {
+        oldName: oldName,
+        newName: newName,
+      });
+    } else if (newScore !== undefined) {
+      // Solo cambió el puntaje - solo actualizar si se proporciona un valor
       gameState.scores[newName] = newScore;
     }
 

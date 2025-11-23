@@ -23,10 +23,24 @@
       };
       let mode = "choose";
       let playerName = "";
+      let previousPlayerName = ""; // Guarda el nombre anterior cuando se cambia
       let hasResponded = false;
       let isHostAuthenticated = false;
       let isEditMode = false;
       let editingPlayer = null;
+
+      // Escuchar cuando el host cambia el nombre de un jugador
+      socket.on("playerNameChanged", (data) => {
+        const { oldName, newName } = data;
+        // Si el nombre cambiado es el nuestro, actualizar nuestra variable local
+        if (mode === "player" && playerName === oldName) {
+          playerName = newName;
+          console.log(
+            `Nombre actualizado por el host: ${oldName} -> ${newName}`
+          );
+          render();
+        }
+      });
 
       socket.on("gameState", (state) => {
         gameState = state;
@@ -34,6 +48,24 @@
         if (mode === "player") {
           if (!gameState.isQuestionActive) {
             hasResponded = false;
+          }
+
+          // Fallback: si nuestro nombre ya no está en los jugadores pero no recibimos el evento,
+          // intentar encontrar el nuevo nombre comparando scores
+          if (playerName && !gameState.players.includes(playerName)) {
+            const oldScore = gameState.scores[playerName] || 0;
+            // Buscar un jugador con nuestro score anterior
+            const newPlayerName = gameState.players.find((player) => {
+              const playerScore = gameState.scores[player] || 0;
+              return player !== playerName && playerScore === oldScore;
+            });
+
+            if (newPlayerName) {
+              playerName = newPlayerName;
+              console.log(
+                `Nombre actualizado (fallback): ${playerName} -> ${newPlayerName}`
+              );
+            }
           }
         }
 
@@ -152,7 +184,7 @@
               <div class="lg:col-span-2 space-y-4">
                 <div class="bg-white rounded-3xl shadow-2xl p-6">
                   <div class="flex items-center justify-between mb-6">
-                    <h1 class="text-3xl font-bold text-gray-800">🎤 Panel de Anfitrión</h1>
+                    <h1 class="text-3xl font-bold text-gray-800">🎤 Tablón de puntuaciones</h1>
                     <button onclick="setMode('choose')" class="px-4 py-2 bg-gray-200 rounded-lg text-gray-700 hover:bg-gray-300">
                       Salir
                     </button>
@@ -699,6 +731,12 @@
 
       function setMode(newMode) {
         mode = newMode;
+        // Limpiar variables del jugador cuando se cambia de modo
+        if (newMode === "choose") {
+          previousPlayerName = "";
+          playerName = "";
+          hasResponded = false;
+        }
         render();
       }
 
@@ -767,14 +805,34 @@
       function submitName() {
         const input = document.getElementById("nameInput");
         if (input.value.trim()) {
-          playerName = input.value.trim();
+          const newName = input.value.trim();
+
+          // Si había un nombre anterior y es diferente, actualizar en lugar de registrar uno nuevo
+          if (previousPlayerName && previousPlayerName !== newName) {
+            const currentScore = gameState.scores[previousPlayerName] || 0;
+            socket.emit("updatePlayer", {
+              oldName: previousPlayerName,
+              newName: newName,
+              newScore: currentScore,
+            });
+          } else if (previousPlayerName === newName) {
+            // Si el nombre es el mismo que tenía, solo restaurar (no hacer nada en el servidor)
+            // El jugador ya está registrado con ese nombre
+          } else if (!previousPlayerName) {
+            // Si no había nombre anterior, registrar como nuevo jugador
+            socket.emit("registerPlayer", newName);
+          }
+
+          // Limpiar previousPlayerName después de procesar
+          previousPlayerName = "";
+          playerName = newName;
           hasResponded = false;
-          socket.emit("registerPlayer", playerName);
           render();
         }
       }
 
       function changeName() {
+        previousPlayerName = playerName; // Guardar el nombre actual antes de cambiar
         playerName = "";
         hasResponded = false;
         render();
