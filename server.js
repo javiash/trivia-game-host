@@ -1,231 +1,240 @@
-const express = require('express');
-const http = require('http');
-const socketIo = require('socket.io');
-const cors = require('cors');
+const express = require("express");
+const http = require("http");
+const socketIo = require("socket.io");
+const cors = require("cors");
 
 const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, {
   cors: {
     origin: "*",
-    methods: ["GET", "POST"]
-  }
+    methods: ["GET", "POST"],
+  },
 });
 
 app.use(cors());
 app.use(express.json());
-app.use(express.static('public'));
+app.use(express.static("public"));
 
 let gameState = {
-  currentQuestion: '',
+  currentQuestion: "",
   isQuestionActive: false,
   responses: [],
   scores: {},
   questionNumber: 0,
   players: new Set(),
-  currentTurnIndex: 0
+  currentTurnIndex: 0,
 };
 
-io.on('connection', (socket) => {
-  console.log('Usuario conectado:', socket.id);
-  
+io.on("connection", (socket) => {
+  console.log("Usuario conectado:", socket.id);
+
   // Enviar estado actual al nuevo cliente
-  socket.emit('gameState', {
+  socket.emit("gameState", {
     ...gameState,
-    players: Array.from(gameState.players)
+    players: Array.from(gameState.players),
   });
-  
+
   // Registrar jugador
-  socket.on('registerPlayer', (name) => {
+  socket.on("registerPlayer", (name) => {
     gameState.players.add(name);
     if (!gameState.scores[name]) {
       gameState.scores[name] = 0;
     }
-    io.emit('gameState', {
+    io.emit("gameState", {
       ...gameState,
-      players: Array.from(gameState.players)
+      players: Array.from(gameState.players),
     });
-    console.log('Jugador registrado:', name);
+    console.log("Jugador registrado:", name);
   });
-  
+
   // Iniciar pregunta
-  socket.on('startQuestion', (question) => {
+  socket.on("startQuestion", (question) => {
     gameState.questionNumber++;
     gameState.currentQuestion = question;
     gameState.isQuestionActive = true;
     gameState.responses = [];
     gameState.currentTurnIndex = 0;
-    
-    io.emit('gameState', {
+
+    io.emit("gameState", {
       ...gameState,
-      players: Array.from(gameState.players)
+      players: Array.from(gameState.players),
     });
-    console.log('Nueva pregunta:', question);
+    console.log("Nueva pregunta:", question);
   });
-  
+
   // Respuesta de jugador
-  socket.on('playerResponse', (data) => {
+  socket.on("playerResponse", (data) => {
     if (!gameState.isQuestionActive) return;
-    
+
     // Verificar que no haya respondido ya
-    const alreadyResponded = gameState.responses.find(r => r.name === data.name);
+    const alreadyResponded = gameState.responses.find(
+      (r) => r.name === data.name
+    );
     if (alreadyResponded) return;
-    
+
     const response = {
       name: data.name,
       timestamp: Date.now(),
-      status: 'waiting' // waiting, correct, incorrect
+      status: "waiting", // waiting, correct, incorrect
     };
-    
+
     gameState.responses.push(response);
     gameState.responses.sort((a, b) => a.timestamp - b.timestamp);
-    
-    io.emit('gameState', {
+
+    io.emit("gameState", {
       ...gameState,
-      players: Array.from(gameState.players)
+      players: Array.from(gameState.players),
     });
-    console.log('Respuesta de:', data.name);
+    console.log("Respuesta de:", data.name);
   });
-  
+
   // Marcar respuesta como correcta
-  socket.on('markCorrect', (data) => {
-    const response = gameState.responses.find(r => r.name === data.name);
+  socket.on("markCorrect", (data) => {
+    const response = gameState.responses.find((r) => r.name === data.name);
     if (response) {
-      response.status = 'correct';
+      response.status = "correct";
       const points = data.points || 1;
       gameState.scores[data.name] = (gameState.scores[data.name] || 0) + points;
-      
+
       // Cerrar pregunta automáticamente
       gameState.isQuestionActive = false;
       gameState.currentTurnIndex = 0;
-      
-      io.emit('gameState', {
+
+      io.emit("gameState", {
         ...gameState,
-        players: Array.from(gameState.players)
+        players: Array.from(gameState.players),
       });
-      console.log('Respuesta correcta:', data.name, '+', points, 'pts');
+      console.log("Respuesta correcta:", data.name, "+", points, "pts");
     }
   });
-  
+
   // Marcar respuesta como incorrecta
-  socket.on('markIncorrect', (name) => {
-    const response = gameState.responses.find(r => r.name === name);
+  socket.on("markIncorrect", (name) => {
+    const response = gameState.responses.find((r) => r.name === name);
     if (response) {
-      response.status = 'incorrect';
+      response.status = "incorrect";
       gameState.currentTurnIndex++;
-      
-      io.emit('gameState', {
+
+      io.emit("gameState", {
         ...gameState,
-        players: Array.from(gameState.players)
+        players: Array.from(gameState.players),
       });
-      console.log('Respuesta incorrecta:', name);
+      console.log("Respuesta incorrecta:", name);
     }
   });
-  
+
   // Cerrar pregunta
-  socket.on('endQuestion', () => {
+  socket.on("endQuestion", () => {
     gameState.isQuestionActive = false;
     gameState.currentTurnIndex = 0;
-    
-    io.emit('gameState', {
+
+    io.emit("gameState", {
       ...gameState,
-      players: Array.from(gameState.players)
+      players: Array.from(gameState.players),
     });
-    console.log('Pregunta cerrada');
+    console.log("Pregunta cerrada");
   });
-  
+
   // Reiniciar juego
-  socket.on('resetGame', () => {
+  socket.on("resetGame", () => {
     const players = gameState.players;
     gameState = {
-      currentQuestion: '',
+      currentQuestion: "",
       isQuestionActive: false,
       responses: [],
       scores: {},
       questionNumber: 0,
       players: players,
-      currentTurnIndex: 0
+      currentTurnIndex: 0,
     };
-    
+
     // Reiniciar puntos de jugadores existentes
-    Array.from(players).forEach(player => {
+    Array.from(players).forEach((player) => {
       gameState.scores[player] = 0;
     });
-    
-    io.emit('gameState', {
+
+    io.emit("gameState", {
       ...gameState,
-      players: Array.from(gameState.players)
+      players: Array.from(gameState.players),
     });
-    console.log('Juego reiniciado');
+    console.log("Juego reiniciado");
   });
-  
+
   // Quitar todos los jugadores
-  socket.on('removeAllPlayers', () => {
+  socket.on("removeAllPlayers", () => {
     gameState.players = new Set();
     gameState.scores = {};
     gameState.responses = [];
     gameState.isQuestionActive = false;
-    gameState.currentQuestion = '';
+    gameState.currentQuestion = "";
     gameState.questionNumber = 0;
     gameState.currentTurnIndex = 0;
-    
-    io.emit('gameState', {
+
+    io.emit("gameState", {
       ...gameState,
-      players: Array.from(gameState.players)
+      players: Array.from(gameState.players),
     });
-    console.log('Todos los jugadores eliminados');
+    console.log("Todos los jugadores eliminados");
   });
-  
+
   // Eliminar jugador individual
-  socket.on('removePlayer', (name) => {
+  socket.on("removePlayer", (name) => {
     gameState.players.delete(name);
     delete gameState.scores[name];
-    gameState.responses = gameState.responses.filter(r => r.name !== name);
-    
-    io.emit('gameState', {
+    gameState.responses = gameState.responses.filter((r) => r.name !== name);
+
+    io.emit("gameState", {
       ...gameState,
-      players: Array.from(gameState.players)
+      players: Array.from(gameState.players),
     });
-    console.log('Jugador eliminado:', name);
+    console.log("Jugador eliminado:", name);
   });
-  
+
   // Actualizar jugador (nombre y/o puntos)
-  socket.on('updatePlayer', (data) => {
+  socket.on("updatePlayer", (data) => {
     const { oldName, newName, newScore } = data;
-    
+
     // Si cambió el nombre
     if (oldName !== newName) {
       gameState.players.delete(oldName);
       gameState.players.add(newName);
-      
+
       // Actualizar puntos con el nuevo nombre
       const score = gameState.scores[oldName] || 0;
       delete gameState.scores[oldName];
       gameState.scores[newName] = newScore !== undefined ? newScore : score;
-      
+
       // Actualizar respuestas
-      gameState.responses.forEach(r => {
+      gameState.responses.forEach((r) => {
         if (r.name === oldName) r.name = newName;
       });
     } else {
       // Solo cambió el puntaje
       gameState.scores[newName] = newScore;
     }
-    
-    io.emit('gameState', {
+
+    io.emit("gameState", {
       ...gameState,
-      players: Array.from(gameState.players)
+      players: Array.from(gameState.players),
     });
-    console.log('Jugador actualizado:', oldName, '->', newName, 'Puntos:', newScore);
+    console.log(
+      "Jugador actualizado:",
+      oldName,
+      "->",
+      newName,
+      "Puntos:",
+      newScore
+    );
   });
-  
-  socket.on('disconnect', () => {
-    console.log('Usuario desconectado:', socket.id);
+
+  socket.on("disconnect", () => {
+    console.log("Usuario desconectado:", socket.id);
   });
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, '0.0.0.0', () => {
+server.listen(PORT, "0.0.0.0", () => {
   console.log(`
 ╔════════════════════════════════════════╗
 ║   🎉 SERVIDOR DE TRIVIA INICIADO 🎉   ║

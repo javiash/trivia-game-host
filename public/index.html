@@ -1,111 +1,111 @@
 <!DOCTYPE html>
 <html lang="es">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Trivia de Cumpleaños</title>
-  <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
-  <script src="https://cdn.tailwindcss.com"></script>
-</head>
-<body>
-  <div id="app"></div>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Trivia de Cumpleaños</title>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+  </head>
+  <body>
+    <div id="app"></div>
 
-  <script>
-    const socket = io();
-    let gameState = {
-      currentQuestion: '',
-      isQuestionActive: false,
-      responses: [],
-      scores: {},
-      questionNumber: 0,
-      players: [],
-      currentTurnIndex: 0
-    };
-    let mode = 'choose';
-    let playerName = '';
-    let hasResponded = false;
-    let isHostAuthenticated = false;
-    let isEditMode = false;
-    let editingPlayer = null;
+    <script>
+      const socket = io();
+      let gameState = {
+        currentQuestion: "",
+        isQuestionActive: false,
+        responses: [],
+        scores: {},
+        questionNumber: 0,
+        players: [],
+        currentTurnIndex: 0,
+      };
+      let mode = "choose";
+      let playerName = "";
+      let hasResponded = false;
+      let isHostAuthenticated = false;
+      let isEditMode = false;
+      let editingPlayer = null;
 
-    socket.on('gameState', (state) => {
-      gameState = state;
-      
-      if (mode === 'player') {
-        if (!gameState.isQuestionActive) {
-          hasResponded = false;
+      socket.on("gameState", (state) => {
+        gameState = state;
+
+        if (mode === "player") {
+          if (!gameState.isQuestionActive) {
+            hasResponded = false;
+          }
+        }
+
+        render();
+      });
+
+      function startQuestion(question) {
+        socket.emit("startQuestion", question);
+      }
+
+      function endQuestion() {
+        socket.emit("endQuestion");
+      }
+
+      function playerResponse() {
+        if (!gameState.isQuestionActive || hasResponded) return;
+        hasResponded = true;
+        socket.emit("playerResponse", { name: playerName });
+        render();
+      }
+
+      function markCorrect(name, points) {
+        socket.emit("markCorrect", { name, points });
+      }
+
+      function markIncorrect(name) {
+        socket.emit("markIncorrect", name);
+      }
+
+      function resetGame() {
+        socket.emit("resetGame");
+      }
+
+      function removeAllPlayers() {
+        socket.emit("removeAllPlayers");
+      }
+
+      function removePlayer(name) {
+        socket.emit("removePlayer", name);
+      }
+
+      function updatePlayer(oldName, newName, newScore) {
+        socket.emit("updatePlayer", { oldName, newName, newScore });
+      }
+
+      function toggleEditMode() {
+        isEditMode = !isEditMode;
+        editingPlayer = null;
+        if (mode === "host" && isHostAuthenticated) {
+          renderPlayersList();
         }
       }
-      
-      render();
-    });
 
-    function startQuestion(question) {
-      socket.emit('startQuestion', question);
-    }
-
-    function endQuestion() {
-      socket.emit('endQuestion');
-    }
-
-    function playerResponse() {
-      if (!gameState.isQuestionActive || hasResponded) return;
-      hasResponded = true;
-      socket.emit('playerResponse', { name: playerName });
-      render();
-    }
-
-    function markCorrect(name, points) {
-      socket.emit('markCorrect', { name, points });
-    }
-
-    function markIncorrect(name) {
-      socket.emit('markIncorrect', name);
-    }
-
-    function resetGame() {
-      socket.emit('resetGame');
-    }
-
-    function removeAllPlayers() {
-      socket.emit('removeAllPlayers');
-    }
-
-    function removePlayer(name) {
-      socket.emit('removePlayer', name);
-    }
-
-    function updatePlayer(oldName, newName, newScore) {
-      socket.emit('updatePlayer', { oldName, newName, newScore });
-    }
-
-    function toggleEditMode() {
-      isEditMode = !isEditMode;
-      editingPlayer = null;
-      if (mode === 'host' && isHostAuthenticated) {
+      function startEditingPlayer(playerName) {
+        editingPlayer = playerName;
         renderPlayersList();
       }
-    }
 
-    function startEditingPlayer(playerName) {
-      editingPlayer = playerName;
-      renderPlayersList();
-    }
+      function savePlayerEdit(oldName) {
+        // Esta función ya no se usa directamente, los event listeners la manejan
+      }
 
-    function savePlayerEdit(oldName) {
-      // Esta función ya no se usa directamente, los event listeners la manejan
-    }
+      function cancelEdit() {
+        editingPlayer = null;
+        renderPlayersList();
+      }
 
-    function cancelEdit() {
-      editingPlayer = null;
-      renderPlayersList();
-    }
+      function render() {
+        const app = document.getElementById("app");
 
-    function render() {
-      const app = document.getElementById('app');
-      
-      if (mode === 'choose') {
-        app.innerHTML = `
+        if (mode === "choose") {
+          app.innerHTML = `
           <div class="min-h-screen bg-gradient-to-br from-purple-600 via-pink-500 to-orange-400 flex items-center justify-center p-4">
             <div class="bg-white rounded-3xl shadow-2xl p-8 max-w-md w-full">
               <div class="text-center mb-8">
@@ -126,24 +126,24 @@
             </div>
           </div>
         `;
-      } else if (mode === 'host') {
-        if (!isHostAuthenticated) {
-          renderHostLogin();
-        } else {
-          renderHost();
+        } else if (mode === "host") {
+          if (!isHostAuthenticated) {
+            renderHostLogin();
+          } else {
+            renderHost();
+          }
+        } else if (mode === "player") {
+          renderPlayer();
         }
-      } else if (mode === 'player') {
-        renderPlayer();
       }
-    }
 
-    function renderHost() {
-      const sortedScores = Object.entries(gameState.scores).sort((a, b) => b[1] - a[1]);
-      const waitingResponses = gameState.responses.filter(r => r.status === 'waiting');
-      const correctCount = gameState.responses.filter(r => r.status === 'correct').length;
-      
-      const app = document.getElementById('app');
-      app.innerHTML = `
+      function renderHost() {
+        const sortedScores = Object.entries(gameState.scores).sort(
+          (a, b) => b[1] - a[1]
+        );
+
+        const app = document.getElementById("app");
+        app.innerHTML = `
         <div class="min-h-screen bg-gradient-to-br from-purple-600 via-pink-500 to-orange-400 p-4">
           <div class="max-w-7xl mx-auto">
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -165,39 +165,59 @@
                     <div class="flex gap-2">
                       <button
                         onclick="launchQuestion()"
-                        ${gameState.isQuestionActive ? 'disabled' : ''}
+                        ${gameState.isQuestionActive ? "disabled" : ""}
                         class="flex-1 px-6 py-4 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-xl font-semibold text-lg disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-lg transition-all"
                       >
-                        ${gameState.isQuestionActive ? '⏳ Pregunta Activa' : '🚀 Iniciar Pregunta'}
+                        ${
+                          gameState.isQuestionActive
+                            ? "⏳ Pregunta Activa"
+                            : "🚀 Iniciar Pregunta"
+                        }
                       </button>
                     </div>
                     <p class="text-sm text-gray-500 mt-2">Haz la pregunta verbalmente a los participantes</p>
                   </div>
 
-                  ${gameState.currentQuestion ? `
+                  ${
+                    gameState.currentQuestion
+                      ? `
                     <div class="mb-6 p-4 bg-gradient-to-r from-purple-100 to-pink-100 rounded-xl">
                       <div class="flex items-center justify-between">
                         <div class="flex-1">
-                          <p class="text-lg font-bold text-gray-800">Pregunta #${gameState.questionNumber}</p>
-                          <p class="text-sm text-gray-600 mt-1">${gameState.isQuestionActive ? 'En curso...' : 'Finalizada'}</p>
+                          <p class="text-lg font-bold text-gray-800">Pregunta #${
+                            gameState.questionNumber
+                          }</p>
+                          <p class="text-sm text-gray-600 mt-1">${
+                            gameState.isQuestionActive
+                              ? "En curso..."
+                              : "Finalizada"
+                          }</p>
                         </div>
-                        ${gameState.isQuestionActive ? `
+                        ${
+                          gameState.isQuestionActive
+                            ? `
                           <button
                             onclick="endQuestion()"
                             class="ml-4 px-6 py-3 bg-red-500 text-white rounded-xl font-semibold hover:bg-red-600"
                           >
                             ❌ Cancelar Pregunta
                           </button>
-                        ` : `
+                        `
+                            : `
                           <span class="ml-4 px-6 py-3 bg-gray-400 text-white rounded-xl font-semibold">
                             ✓ Cerrada
                           </span>
-                        `}
+                        `
+                        }
                       </div>
                     </div>
-                  ` : ''}
+                  `
+                      : ""
+                  }
 
-                  ${gameState.isQuestionActive ? `
+                  ${
+                    gameState.isQuestionActive
+                      ? `
                     <div class="mb-6">
                       <h3 class="text-lg font-bold text-gray-800 mb-3">⚡ Orden de Respuestas</h3>
                       <div class="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-3">
@@ -210,26 +230,51 @@
                           <li><strong>✗</strong>: Respuesta incorrecta (pasa al siguiente)</li>
                         </ul>
                       </div>
-                      ${gameState.responses.length === 0 ? `
+                      ${
+                        gameState.responses.length === 0
+                          ? `
                         <p class="text-gray-500 text-center py-4">Esperando respuestas...</p>
-                      ` : `
+                      `
+                          : `
                         <div class="space-y-2">
-                          ${gameState.responses.map((response, index) => {
-                            const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}°`;
-                            const isCurrentTurn = response.status === 'waiting' && index === gameState.responses.findIndex(r => r.status === 'waiting');
-                            
-                            return `
+                          ${gameState.responses
+                            .map((response, index) => {
+                              const medal =
+                                index === 0
+                                  ? "🥇"
+                                  : index === 1
+                                  ? "🥈"
+                                  : index === 2
+                                  ? "🥉"
+                                  : `${index + 1}°`;
+                              const isCurrentTurn =
+                                response.status === "waiting" &&
+                                index ===
+                                  gameState.responses.findIndex(
+                                    (r) => r.status === "waiting"
+                                  );
+
+                              return `
                               <div class="flex items-center gap-3 p-3 rounded-xl border-2 ${
-                                response.status === 'correct' ? 'bg-green-100 border-green-400' :
-                                response.status === 'incorrect' ? 'bg-red-100 border-red-400' :
-                                isCurrentTurn ? 'bg-yellow-100 border-yellow-400 animate-pulse' :
-                                'bg-gray-50 border-gray-300'
+                                response.status === "correct"
+                                  ? "bg-green-100 border-green-400"
+                                  : response.status === "incorrect"
+                                  ? "bg-red-100 border-red-400"
+                                  : isCurrentTurn
+                                  ? "bg-yellow-100 border-yellow-400 animate-pulse"
+                                  : "bg-gray-50 border-gray-300"
                               }">
                                 <span class="text-2xl font-bold">${medal}</span>
-                                <span class="font-semibold text-gray-800 flex-1">${response.name}</span>
+                                <span class="font-semibold text-gray-800 flex-1">${
+                                  response.name
+                                }</span>
                                 
-                                ${response.status === 'waiting' ? `
-                                  ${isCurrentTurn ? `
+                                ${
+                                  response.status === "waiting"
+                                    ? `
+                                  ${
+                                    isCurrentTurn
+                                      ? `
                                     <span class="text-xs bg-yellow-500 text-white px-2 py-1 rounded-full mr-2">ES SU TURNO</span>
                                     <div class="flex gap-2">
                                       <button
@@ -251,21 +296,31 @@
                                         ✗
                                       </button>
                                     </div>
-                                  ` : `
+                                  `
+                                      : `
                                     <span class="text-sm text-gray-600">Esperando turno...</span>
-                                  `}
-                                ` : response.status === 'correct' ? `
+                                  `
+                                  }
+                                `
+                                    : response.status === "correct"
+                                    ? `
                                   <span class="text-green-600 font-bold">✓ CORRECTO</span>
-                                ` : `
+                                `
+                                    : `
                                   <span class="text-red-600 font-bold">✗ INCORRECTO</span>
-                                `}
+                                `
+                                }
                               </div>
                             `;
-                          }).join('')}
+                            })
+                            .join("")}
                         </div>
-                      `}
+                      `
+                      }
                     </div>
-                  ` : ''}
+                  `
+                      : ""
+                  }
                 </div>
               </div>
 
@@ -279,17 +334,23 @@
                     </h3>
                     <button
                       onclick="toggleEditMode()"
-                      class="px-3 py-1 ${isEditMode ? 'bg-orange-500' : 'bg-blue-500'} text-white rounded-lg hover:opacity-80 text-sm font-semibold"
+                      class="px-3 py-1 ${
+                        isEditMode ? "bg-orange-500" : "bg-blue-500"
+                      } text-white rounded-lg hover:opacity-80 text-sm font-semibold"
                     >
-                      ${isEditMode ? '🔓 Bloquear' : '🔒 Editar'}
+                      ${isEditMode ? "🔓 Bloquear" : "🔒 Editar"}
                     </button>
                   </div>
-                  ${gameState.players.length === 0 ? `
+                  ${
+                    gameState.players.length === 0
+                      ? `
                     <p class="text-gray-500 text-center py-4 text-sm">No hay jugadores conectados</p>
-                  ` : `
+                  `
+                      : `
                     <div class="space-y-2 max-h-96 overflow-y-auto" id="players-list">
                     </div>
-                  `}
+                  `
+                  }
                 </div>
 
                 <!-- Tabla de Puntuación -->
@@ -313,50 +374,68 @@
                       </button>
                     </div>
                   </div>
-                  ${sortedScores.length === 0 ? `
+                  ${
+                    sortedScores.length === 0
+                      ? `
                     <p class="text-gray-500 text-center py-4 text-sm">No hay puntuaciones aún</p>
-                  ` : `
+                  `
+                      : `
                     <div class="space-y-2">
-                      ${sortedScores.slice(0, 10).map(([name, score], index) => `
+                      ${sortedScores
+                        .slice(0, 10)
+                        .map(
+                          ([name, score], index) => `
                         <div class="flex items-center gap-2 p-2 rounded-lg ${
-                          index === 0 ? 'bg-gradient-to-r from-yellow-200 to-yellow-100' :
-                          index === 1 ? 'bg-gradient-to-r from-gray-200 to-gray-100' :
-                          index === 2 ? 'bg-gradient-to-r from-orange-200 to-orange-100' :
-                          'bg-gray-50'
+                          index === 0
+                            ? "bg-gradient-to-r from-yellow-200 to-yellow-100"
+                            : index === 1
+                            ? "bg-gradient-to-r from-gray-200 to-gray-100"
+                            : index === 2
+                            ? "bg-gradient-to-r from-orange-200 to-orange-100"
+                            : "bg-gray-50"
                         }">
-                          <span class="text-lg font-bold w-6">${index + 1}</span>
+                          <span class="text-lg font-bold w-6">${
+                            index + 1
+                          }</span>
                           <span class="font-semibold text-gray-800 flex-1 text-sm truncate">${name}</span>
                           <span class="text-lg font-bold text-purple-600">${score}</span>
                         </div>
-                      `).join('')}
+                      `
+                        )
+                        .join("")}
                     </div>
-                  `}
+                  `
+                  }
                 </div>
               </div>
             </div>
           </div>
         </div>
       `;
-      
-      // Renderizar lista de jugadores después de que el HTML esté en el DOM
-      if (gameState.players.length > 0) {
-        renderPlayersList();
-      }
-    }
 
-    function renderPlayersList() {
-      const container = document.getElementById('players-list');
-      if (!container) return;
-      
-      container.innerHTML = '';
-      
-      gameState.players.forEach((player, index) => {
-        const isEditing = editingPlayer === player;
-        const playerDiv = document.createElement('div');
-        playerDiv.className = `p-3 ${isEditing ? 'bg-orange-50 border-2 border-orange-400' : 'bg-blue-50 border border-blue-200'} rounded-lg`;
-        
-        if (isEditing) {
-          playerDiv.innerHTML = `
+        // Renderizar lista de jugadores después de que el HTML esté en el DOM
+        if (gameState.players.length > 0) {
+          renderPlayersList();
+        }
+      }
+
+      function renderPlayersList() {
+        const container = document.getElementById("players-list");
+        if (!container) return;
+
+        container.innerHTML = "";
+
+        gameState.players.forEach((player, index) => {
+          const isEditing = editingPlayer === player;
+          const playerDiv = document.createElement("div");
+          playerDiv.className = `p-3 ${
+            isEditing
+              ? "bg-orange-50 border-2 border-orange-400"
+              : "bg-blue-50 border border-blue-200"
+          } rounded-lg`;
+
+          if (isEditing) {
+            playerDiv.innerHTML = `
             <div class="space-y-2">
               <input
                 type="text"
@@ -388,16 +467,20 @@
               </div>
             </div>
           `;
-        } else {
-          playerDiv.innerHTML = `
+          } else {
+            playerDiv.innerHTML = `
             <div class="flex items-center justify-between">
               <div class="flex items-center gap-2 flex-1">
                 <div class="w-2 h-2 bg-green-500 rounded-full"></div>
                 <span class="font-semibold text-gray-800">${player}</span>
               </div>
               <div class="flex items-center gap-2">
-                <span class="text-sm text-purple-600 font-bold">${gameState.scores[player] || 0} pts</span>
-                ${isEditMode ? `
+                <span class="text-sm text-purple-600 font-bold">${
+                  gameState.scores[player] || 0
+                } pts</span>
+                ${
+                  isEditMode
+                    ? `
                   <button
                     class="px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 text-xs edit-btn"
                     data-player="${player}"
@@ -410,53 +493,59 @@
                   >
                     🗑️
                   </button>
-                ` : ''}
+                `
+                    : ""
+                }
               </div>
             </div>
           `;
-        }
-        
-        container.appendChild(playerDiv);
-      });
-      
-      // Agregar event listeners
-      container.querySelectorAll('.edit-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-          startEditingPlayer(btn.dataset.player);
-        });
-      });
-      
-      container.querySelectorAll('.delete-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-          if (confirm(`¿Eliminar a ${btn.dataset.player}?`)) {
-            removePlayer(btn.dataset.player);
           }
-        });
-      });
-      
-      container.querySelectorAll('.save-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const oldName = btn.dataset.player;
-          const index = btn.dataset.index;
-          const newName = document.getElementById(`edit-name-${index}`).value.trim();
-          const newScore = parseInt(document.getElementById(`edit-score-${index}`).value) || 0;
-          
-          if (newName) {
-            updatePlayer(oldName, newName, newScore);
-            editingPlayer = null;
-          }
-        });
-      });
-      
-      container.querySelectorAll('.cancel-btn').forEach(btn => {
-        btn.addEventListener('click', cancelEdit);
-      });
-    }
 
-    function renderPlayer() {
-      if (!playerName) {
-        const app = document.getElementById('app');
-        app.innerHTML = `
+          container.appendChild(playerDiv);
+        });
+
+        // Agregar event listeners
+        container.querySelectorAll(".edit-btn").forEach((btn) => {
+          btn.addEventListener("click", () => {
+            startEditingPlayer(btn.dataset.player);
+          });
+        });
+
+        container.querySelectorAll(".delete-btn").forEach((btn) => {
+          btn.addEventListener("click", () => {
+            if (confirm(`¿Eliminar a ${btn.dataset.player}?`)) {
+              removePlayer(btn.dataset.player);
+            }
+          });
+        });
+
+        container.querySelectorAll(".save-btn").forEach((btn) => {
+          btn.addEventListener("click", () => {
+            const oldName = btn.dataset.player;
+            const index = btn.dataset.index;
+            const newName = document
+              .getElementById(`edit-name-${index}`)
+              .value.trim();
+            const newScore =
+              parseInt(document.getElementById(`edit-score-${index}`).value) ||
+              0;
+
+            if (newName) {
+              updatePlayer(oldName, newName, newScore);
+              editingPlayer = null;
+            }
+          });
+        });
+
+        container.querySelectorAll(".cancel-btn").forEach((btn) => {
+          btn.addEventListener("click", cancelEdit);
+        });
+      }
+
+      function renderPlayer() {
+        if (!playerName) {
+          const app = document.getElementById("app");
+          app.innerHTML = `
           <div class="min-h-screen bg-gradient-to-br from-blue-600 via-cyan-500 to-teal-400 flex items-center justify-center p-4">
             <div class="bg-white rounded-3xl shadow-2xl p-8 max-w-md w-full">
               <div class="text-center mb-6">
@@ -488,14 +577,17 @@
             </div>
           </div>
         `;
-        return;
-      }
+          return;
+        }
 
-      const myResponse = gameState.responses.find(r => r.name === playerName);
-      const myPosition = gameState.responses.findIndex(r => r.name === playerName) + 1;
+        const myResponse = gameState.responses.find(
+          (r) => r.name === playerName
+        );
+        const myPosition =
+          gameState.responses.findIndex((r) => r.name === playerName) + 1;
 
-      const app = document.getElementById('app');
-      app.innerHTML = `
+        const app = document.getElementById("app");
+        app.innerHTML = `
         <div class="min-h-screen bg-gradient-to-br from-blue-600 via-cyan-500 to-teal-400 flex items-center justify-center p-4">
           <div class="bg-white rounded-3xl shadow-2xl p-8 max-w-md w-full">
             <div class="text-center mb-6">
@@ -508,46 +600,75 @@
               </button>
             </div>
 
-            ${!gameState.isQuestionActive && !gameState.currentQuestion ? `
+            ${
+              !gameState.isQuestionActive && !gameState.currentQuestion
+                ? `
               <div class="text-center py-8">
                 <div class="text-6xl mb-4">⚡</div>
                 <p class="text-gray-600 text-lg">Esperando la primera pregunta...</p>
               </div>
-            ` : ''}
+            `
+                : ""
+            }
 
-            ${gameState.currentQuestion ? `
+            ${
+              gameState.currentQuestion
+                ? `
               <div class="mb-6 p-4 bg-gradient-to-r from-blue-100 to-cyan-100 rounded-xl">
                 <p class="text-sm text-gray-600 mb-2">Pregunta Actual:</p>
                 <p class="text-xl font-bold text-gray-800">${gameState.currentQuestion}</p>
               </div>
-            ` : ''}
+            `
+                : ""
+            }
 
-            ${gameState.isQuestionActive ? (
-              hasResponded && myResponse ? `
+            ${
+              gameState.isQuestionActive
+                ? hasResponded && myResponse
+                  ? `
                 <div class="text-center py-6">
                   <div class="w-20 h-20 ${
-                    myResponse.status === 'correct' ? 'bg-green-500' :
-                    myResponse.status === 'incorrect' ? 'bg-red-500' :
-                    'bg-blue-500'
+                    myResponse.status === "correct"
+                      ? "bg-green-500"
+                      : myResponse.status === "incorrect"
+                      ? "bg-red-500"
+                      : "bg-blue-500"
                   } rounded-full flex items-center justify-center mx-auto mb-4">
                     <span class="text-4xl">${
-                      myResponse.status === 'correct' ? '✓' :
-                      myResponse.status === 'incorrect' ? '✗' :
-                      myPosition === 1 ? '🥇' : myPosition === 2 ? '🥈' : myPosition === 3 ? '🥉' : myPosition + '°'
+                      myResponse.status === "correct"
+                        ? "✓"
+                        : myResponse.status === "incorrect"
+                        ? "✗"
+                        : myPosition === 1
+                        ? "🥇"
+                        : myPosition === 2
+                        ? "🥈"
+                        : myPosition === 3
+                        ? "🥉"
+                        : myPosition + "°"
                     }</span>
                   </div>
                   <p class="text-xl font-bold text-gray-800 mb-2">
-                    ${myResponse.status === 'correct' ? '¡Respuesta Correcta!' :
-                      myResponse.status === 'incorrect' ? 'Respuesta Incorrecta' :
-                      `Posición: ${myPosition}°`}
+                    ${
+                      myResponse.status === "correct"
+                        ? "¡Respuesta Correcta!"
+                        : myResponse.status === "incorrect"
+                        ? "Respuesta Incorrecta"
+                        : `Posición: ${myPosition}°`
+                    }
                   </p>
                   <p class="text-gray-600">
-                    ${myResponse.status === 'waiting' ? 'Esperando validación del anfitrión...' :
-                      myResponse.status === 'correct' ? '¡Sumaste puntos!' :
-                      'Sigue participando'}
+                    ${
+                      myResponse.status === "waiting"
+                        ? "Esperando validación del anfitrión..."
+                        : myResponse.status === "correct"
+                        ? "¡Sumaste puntos!"
+                        : "Sigue participando"
+                    }
                   </p>
                 </div>
-              ` : `
+              `
+                  : `
                 <button
                   onclick="playerResponse()"
                   class="w-full bg-gradient-to-r from-green-500 to-emerald-500 text-white py-8 rounded-2xl font-bold text-2xl hover:shadow-2xl transform hover:scale-105 transition-all active:scale-95"
@@ -555,34 +676,39 @@
                   🚀 ¡RESPONDER!
                 </button>
               `
-            ) : gameState.currentQuestion ? `
+                : gameState.currentQuestion
+                ? `
               <div class="text-center py-8">
                 <p class="text-gray-600 text-lg mb-4">Pregunta cerrada</p>
                 <p class="text-sm text-gray-500">Esperando siguiente pregunta...</p>
               </div>
-            ` : ''}
+            `
+                : ""
+            }
 
             <div class="mt-6 p-4 bg-purple-100 rounded-xl text-center">
               <p class="text-gray-700 mb-1">Tu Puntuación</p>
-              <p class="text-3xl font-bold text-purple-600">${gameState.scores[playerName] || 0} pts</p>
+              <p class="text-3xl font-bold text-purple-600">${
+                gameState.scores[playerName] || 0
+              } pts</p>
             </div>
           </div>
         </div>
       `;
-    }
+      }
 
-    function setMode(newMode) {
-      mode = newMode;
-      render();
-    }
+      function setMode(newMode) {
+        mode = newMode;
+        render();
+      }
 
-    function promptHostPassword() {
-      setMode('host');
-    }
+      function promptHostPassword() {
+        setMode("host");
+      }
 
-    function renderHostLogin() {
-      const app = document.getElementById('app');
-      app.innerHTML = `
+      function renderHostLogin() {
+        const app = document.getElementById("app");
+        app.innerHTML = `
         <div class="min-h-screen bg-gradient-to-br from-purple-600 via-pink-500 to-orange-400 flex items-center justify-center p-4">
           <div class="bg-white rounded-3xl shadow-2xl p-8 max-w-md w-full">
             <div class="text-center mb-6">
@@ -619,46 +745,46 @@
           </div>
         </div>
       `;
-    }
-
-    function checkHostPassword() {
-      const input = document.getElementById('hostPasswordInput');
-      const errorMessage = document.getElementById('errorMessage');
-      
-      if (input.value === 'Marco') {
-        isHostAuthenticated = true;
-        render();
-      } else {
-        errorMessage.classList.remove('hidden');
-        input.value = '';
-        input.focus();
-        setTimeout(() => {
-          errorMessage.classList.add('hidden');
-        }, 3000);
       }
-    }
 
-    function submitName() {
-      const input = document.getElementById('nameInput');
-      if (input.value.trim()) {
-        playerName = input.value.trim();
+      function checkHostPassword() {
+        const input = document.getElementById("hostPasswordInput");
+        const errorMessage = document.getElementById("errorMessage");
+
+        if (input.value === "Marco") {
+          isHostAuthenticated = true;
+          render();
+        } else {
+          errorMessage.classList.remove("hidden");
+          input.value = "";
+          input.focus();
+          setTimeout(() => {
+            errorMessage.classList.add("hidden");
+          }, 3000);
+        }
+      }
+
+      function submitName() {
+        const input = document.getElementById("nameInput");
+        if (input.value.trim()) {
+          playerName = input.value.trim();
+          hasResponded = false;
+          socket.emit("registerPlayer", playerName);
+          render();
+        }
+      }
+
+      function changeName() {
+        playerName = "";
         hasResponded = false;
-        socket.emit('registerPlayer', playerName);
         render();
       }
-    }
 
-    function changeName() {
-      playerName = '';
-      hasResponded = false;
+      function launchQuestion() {
+        startQuestion("Pregunta #" + (gameState.questionNumber + 1));
+      }
+
       render();
-    }
-
-    function launchQuestion() {
-      startQuestion('Pregunta #' + (gameState.questionNumber + 1));
-    }
-
-    render();
-  </script>
-</body>
+    </script>
+  </body>
 </html>
