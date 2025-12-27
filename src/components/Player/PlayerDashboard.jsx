@@ -1,11 +1,11 @@
-import { useGame } from '../../context/GameContext';
+import { useGame } from "../../context/GameContext";
+import { Ranking } from "../Host/Ranking";
 
 export function PlayerDashboard() {
   const {
     playerName,
     setPlayerName,
     setPreviousPlayerName,
-    setMode,
     gameState,
     hasResponded,
     playerResponse,
@@ -17,7 +17,7 @@ export function PlayerDashboard() {
 
   const handleChangeName = () => {
     setPreviousPlayerName(playerName);
-    setPlayerName('');
+    setPlayerName("");
   };
 
   const handleResponse = () => {
@@ -26,38 +26,38 @@ export function PlayerDashboard() {
 
   const getStatusIcon = () => {
     if (!myResponse) return null;
-    if (myResponse.status === 'correct') return '✓';
-    if (myResponse.status === 'incorrect') return '✗';
-    if (myPosition === 1) return '🥇';
-    if (myPosition === 2) return '🥈';
-    if (myPosition === 3) return '🥉';
+    if (myResponse.status === "correct") return "✓";
+    if (myResponse.status === "incorrect") return "✗";
+    if (myPosition === 1) return "🥇";
+    if (myPosition === 2) return "🥈";
+    if (myPosition === 3) return "🥉";
     return `${myPosition}°`;
   };
 
   const getStatusText = () => {
-    if (!myResponse) return '';
-    if (myResponse.status === 'correct') return '¡Respuesta Correcta!';
-    if (myResponse.status === 'incorrect') return 'Respuesta Incorrecta';
+    if (!myResponse) return "";
+    if (myResponse.status === "correct") return "¡Respuesta Correcta!";
+    if (myResponse.status === "incorrect") return "Respuesta Incorrecta";
     return `Posición: ${myPosition}°`;
   };
 
   const getStatusSubtext = () => {
-    if (!myResponse) return '';
-    if (myResponse.status === 'waiting')
-      return 'Esperando validación del anfitrión...';
-    if (myResponse.status === 'correct') return '¡Sumaste puntos!';
-    return 'Sigue participando';
+    if (!myResponse) return "";
+    if (myResponse.status === "waiting")
+      return "Esperando validación del anfitrión...";
+    if (myResponse.status === "correct") return "¡Sumaste puntos!";
+    return "Sigue participando";
   };
 
   const getStatusBgColor = () => {
-    if (!myResponse) return 'bg-blue-500';
-    if (myResponse.status === 'correct') return 'bg-green-500';
-    if (myResponse.status === 'incorrect') return 'bg-red-500';
-    return 'bg-blue-500';
+    if (!myResponse) return "bg-white";
+    if (myResponse.status === "correct") return "bg-green-500";
+    if (myResponse.status === "incorrect") return "bg-red-500";
+    return "bg-white";
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-600 via-cyan-500 to-teal-400 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-blue-600 via-cyan-500 to-teal-400 flex flex-col gap-4 md:flex-row items-start justify-center p-4">
       <div className="bg-white rounded-3xl shadow-2xl p-8 max-w-md w-full">
         <div className="text-center mb-6">
           <h2 className="text-2xl font-bold text-gray-800 mb-2">
@@ -93,7 +93,7 @@ export function PlayerDashboard() {
           hasResponded && myResponse ? (
             <div className="text-center py-6">
               <div
-                className={`w-20 h-20 ${getStatusBgColor()} rounded-full flex items-center justify-center mx-auto mb-4`}
+                className={`w-20 h-20 border-2 border-blue-500 ${getStatusBgColor()} rounded-full flex items-center justify-center mx-auto mb-4`}
               >
                 <span className="text-4xl">{getStatusIcon()}</span>
               </div>
@@ -110,13 +110,6 @@ export function PlayerDashboard() {
               🚀 ¡RESPONDER!
             </button>
           )
-        ) : gameState.currentQuestion ? (
-          <div className="text-center py-8">
-            <p className="text-gray-600 text-lg mb-4">Pregunta cerrada</p>
-            <p className="text-sm text-gray-500">
-              Esperando siguiente pregunta...
-            </p>
-          </div>
         ) : null}
 
         <div className="mt-6 p-4 bg-purple-100 rounded-xl text-center">
@@ -126,7 +119,9 @@ export function PlayerDashboard() {
           </p>
         </div>
       </div>
+      <div className="bg-white rounded-3xl shadow-2xl  p-8 max-w-md w-full">
+        <Ranking isPlayer={true} />
+      </div>
     </div>
   );
 }
-

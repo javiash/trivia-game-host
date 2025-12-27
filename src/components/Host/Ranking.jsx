@@ -1,6 +1,6 @@
 import { useGame } from '../../context/GameContext';
 
-export function Ranking() {
+export function Ranking({isPlayer = false}) {
   const { gameState, resetGame, removeAllPlayers } = useGame();
 
   const sortedScores = Object.entries(gameState.scores).sort(
@@ -26,18 +26,22 @@ export function Ranking() {
           🏆 Ranking
         </h3>
         <div className="flex gap-2">
+          {!isPlayer && (
           <button
             onClick={handleRemoveAll}
             className="px-3 py-1 bg-orange-500 text-white rounded-lg hover:bg-orange-600 text-sm"
           >
             🗑️ Todos
           </button>
+          )}
+          {!isPlayer && (
           <button
             onClick={handleReset}
             className="px-3 py-1 bg-red-500 text-white rounded-lg hover:bg-red-600 text-sm"
           >
             🔄 Reiniciar
           </button>
+          )}
         </div>
       </div>
       {sortedScores.length === 0 ? (
